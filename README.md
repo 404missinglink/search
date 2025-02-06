@@ -89,3 +89,7 @@ All implementations include visualization of the search process, showing:
 
 - Python 3.6+
 - No external dependencies required
+
+## References
+
+- [Search Algorithms - Codecademy](https://www.codecademy.com/resources/docs/ai/search-algorithms) - Comprehensive guide on search algorithms and their applications in AI
