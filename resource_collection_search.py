@@ -79,22 +79,22 @@ class ResourceCollectionProblem:
     Includes the world grid, resource locations, and search parameters.
     """
     
-    def __init__(self, size: int = 10, required_resources: Optional[Resources] = None) -> None:
+    def __init__(self, size: int = 15, required_resources: Optional[Resources] = None) -> None:
         self.size: int = size
         self.grid: Grid = self._generate_world()
         
         # Default resource requirements if none provided
         self.required_resources: Resources = required_resources or {
             ResourceType.WATER: 2,
-            ResourceType.FOOD: 3,
-            ResourceType.WOOD: 2,
+            ResourceType.FOOD: 2,
+            ResourceType.WOOD: 1,
             ResourceType.METAL: 1
         }
         
         # Game world settings
         self.resource_locations: ResourceLocations = self._place_resources()
         self.start_position: Position = (0, 0)
-        self.initial_energy: int = 100
+        self.initial_energy: int = 150
         
         # Movement costs for different terrain types
         self.movement_costs: Dict[TerrainType, int] = {
@@ -410,11 +410,11 @@ def resource_collection_search(problem: ResourceCollectionProblem, max_explored:
 
 if __name__ == "__main__":
     # Create and solve a new resource collection problem
-    problem = ResourceCollectionProblem(size=10)
+    problem = ResourceCollectionProblem(size=15)
     print("Searching for solution...")
-    solution = resource_collection_search(problem)
+    solution = resource_collection_search(problem, max_explored=20000)
     
     if solution:
         problem.print_solution_details(solution)
     else:
-        print("No solution found!") 
+        print("No solution found!")
