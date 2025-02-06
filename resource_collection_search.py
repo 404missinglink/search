@@ -1,38 +1,53 @@
 from heapq import heappush, heappop
 from enum import Enum
 from dataclasses import dataclass
-from typing import List, Set, Dict, Tuple
+from typing import List, Set, Dict, Tuple, Optional, Iterator
 import random
 
 class ResourceType(Enum):
-    """Different types of resources that can be collected"""
+    """
+    Different types of resources that can be collected
+    Each resource type has a unique string value for visualization
+    """
     WATER = 'WATER'
     FOOD = 'FOOD'
     WOOD = 'WOOD'
     METAL = 'METAL'
 
 class TerrainType(Enum):
-    """Different terrain types affecting movement cost"""
-    PLAIN = 1      # Normal movement cost
-    MOUNTAIN = 3   # High movement cost
-    SWAMP = 2      # Medium movement cost
-    HAZARD = -1    # Dangerous area, high risk
+    """
+    Different terrain types affecting movement cost
+    The value represents the energy cost to traverse this terrain
+    """
+    PLAIN = 1      # Normal movement cost (1 energy)
+    MOUNTAIN = 3   # High movement cost (3 energy)
+    SWAMP = 2      # Medium movement cost (2 energy)
+    HAZARD = -1    # Dangerous area, high risk (10 energy in movement_costs)
+
+# Type aliases for better readability
+Position = Tuple[int, int]
+Resources = Dict[ResourceType, int]
+Grid = List[List[TerrainType]]
+ResourceLocations = Dict[ResourceType, List[Position]]
+FrontierItem = Tuple[float, int, 'GameState']  # priority, cost, state
 
 @dataclass
 class GameState:
-    """Represents the complete state of the search problem"""
-    position: Tuple[int, int]           # Current position (x, y)
-    energy: int                         # Current energy level
-    resources: Dict[ResourceType, int]  # Collected resources
-    visited_positions: Set[Tuple]       # Track visited positions for path reconstruction
+    """
+    Represents the complete state of the search problem
+    Includes current position, energy level, collected resources, and path history
+    """
+    position: Position          # Current position as (x, y) coordinates
+    energy: int                # Remaining energy units
+    resources: Resources       # Dictionary tracking collected resource amounts
+    visited_positions: Set[Position]  # Set of positions in path to this state
     
-    def __hash__(self):
+    def __hash__(self) -> int:
         """
         Make state hashable for visited set.
-        This is needed because GameState needs to be hashable to be used in sets.
+        Required for using GameState in sets and as dictionary keys.
         """
-        # Convert resources dict to tuple of (name, amount) pairs sorted by name
-        # This is necessary because dictionaries aren't hashable
+        # Convert mutable resources dict to immutable tuple for hashing
         resources_tuple = tuple(
             sorted(
                 [(r_type.name, amount) for r_type, amount in self.resources.items()],
@@ -45,51 +60,62 @@ class GameState:
             resources_tuple
         ))
     
-    def __lt__(self, other):
+    def __lt__(self, other: 'GameState') -> bool:
         """
         Implementation of less than operator for GameState.
-        This is needed for heapq operations.
-        We don't actually need to compare GameStates,
-        so we use the id of the object as a stable comparison.
+        Compares states based on energy and collected resources.
         """
-        return id(self) < id(other)
+        if self.energy != other.energy:
+            return self.energy > other.energy
+        
+        # Compare total resources collected
+        self_resources = sum(self.resources.values())
+        other_resources = sum(other.resources.values())
+        return self_resources > other_resources
 
 class ResourceCollectionProblem:
-    def __init__(self, size: int = 10, required_resources: Dict[ResourceType, int] = None):
-        """
-        Initialize the resource collection problem
+    """
+    Represents a resource collection problem instance.
+    Includes the world grid, resource locations, and search parameters.
+    """
+    
+    def __init__(self, size: int = 10, required_resources: Optional[Resources] = None) -> None:
+        self.size: int = size
+        self.grid: Grid = self._generate_world()
         
-        Parameters:
-            size: Size of the square grid world (size x size)
-            required_resources: Dictionary specifying how many of each resource type is needed
-        """
-        self.size = size
-        self.grid = self._generate_world()  # Generate random terrain
         # Default resource requirements if none provided
-        self.required_resources = required_resources or {
+        self.required_resources: Resources = required_resources or {
             ResourceType.WATER: 2,
             ResourceType.FOOD: 3,
             ResourceType.WOOD: 2,
             ResourceType.METAL: 1
         }
         
-        # Place resources randomly in the world
-        self.resource_locations = self._place_resources()
-        self.start_position = (0, 0)  # Start at top-left corner
-        self.initial_energy = 100     # Starting energy level
+        # Game world settings
+        self.resource_locations: ResourceLocations = self._place_resources()
+        self.start_position: Position = (0, 0)
+        self.initial_energy: int = 100
         
         # Movement costs for different terrain types
-        self.movement_costs = {
-            TerrainType.PLAIN: 1,     # Basic movement cost
-            TerrainType.MOUNTAIN: 3,  # Difficult terrain, high cost
-            TerrainType.SWAMP: 2,     # Moderately difficult terrain
-            TerrainType.HAZARD: 10    # Very dangerous terrain
+        self.movement_costs: Dict[TerrainType, int] = {
+            TerrainType.PLAIN: 1,
+            TerrainType.MOUNTAIN: 3,
+            TerrainType.SWAMP: 2,
+            TerrainType.HAZARD: 10
         }
-        
-    def _generate_world(self) -> List[List[TerrainType]]:
+
+    def _generate_world(self) -> Grid:
         """
-        Generate a random grid world with various terrain types
-        Returns a 2D grid where each cell contains a TerrainType
+        Generate a random grid world with various terrain types.
+        
+        Terrain distribution:
+        - 75% Plains (default)
+        - 10% Mountains
+        - 10% Swamps
+        - 5% Hazards
+        
+        Returns:
+            2D grid where each cell contains a TerrainType
         """
         # Initialize grid with all plains
         grid = [[TerrainType.PLAIN for _ in range(self.size)] for _ in range(self.size)]
@@ -110,7 +136,7 @@ class ResourceCollectionProblem:
         
         return grid
     
-    def _place_resources(self) -> Dict[ResourceType, List[Tuple[int, int]]]:
+    def _place_resources(self) -> ResourceLocations:
         """
         Place resources randomly in the world
         Returns a dictionary mapping resource types to lists of coordinates
@@ -134,26 +160,54 @@ class ResourceCollectionProblem:
         
         return resources
 
-    def _is_valid_position(self, position: Tuple[int, int]) -> bool:
+    def _is_valid_position(self, position: Position) -> bool:
         """Check if a position is within grid bounds"""
         x, y = position
         return 0 <= x < self.size and 0 <= y < self.size
 
-    def _get_possible_moves(self, position: Tuple[int, int]) -> List[Tuple[int, int]]:
-        """Get all possible moves from current position (including diagonals)"""
+    def _get_possible_moves(self, position: Position) -> Iterator[Position]:
+        """
+        Get all possible moves from current position (including diagonals)
+        
+        Args:
+            position: Current (x, y) position
+            
+        Yields:
+            All eight possible adjacent positions, including diagonals
+        """
         x, y = position
-        return [
-            (x+1, y), (x-1, y), (x, y+1), (x, y-1),  # Cardinal directions
-            (x+1, y+1), (x-1, y-1), (x+1, y-1), (x-1, y+1)  # Diagonals
+        moves = [
+            (x+dx, y+dy) for dx in [-1, 0, 1] for dy in [-1, 0, 1]
+            if (dx, dy) != (0, 0)  # Exclude current position
         ]
+        yield from moves
 
-    def _calculate_new_energy(self, state: GameState, next_pos: Tuple[int, int]) -> int:
-        """Calculate remaining energy after a move"""
+    def _calculate_new_energy(self, state: GameState, next_pos: Position) -> int:
+        """
+        Calculate remaining energy after a move
+        
+        Args:
+            state: Current game state
+            next_pos: Position being moved to
+            
+        Returns:
+            Remaining energy after the move
+        """
+        # Calculate if move is diagonal
+        dx = abs(state.position[0] - next_pos[0])
+        dy = abs(state.position[1] - next_pos[1])
+        is_diagonal = dx == 1 and dy == 1
+        
         terrain_type = self.grid[next_pos[0]][next_pos[1]]
         move_cost = self.movement_costs[terrain_type]
+        
+        # Diagonal moves should cost more (multiply by sqrt(2) ≈ 1.4)
+        if is_diagonal:
+            move_cost = int(move_cost * 1.4)
+        
         return state.energy - move_cost
 
-    def _collect_resources_at_position(self, position: Tuple[int, int], current_resources: Dict[ResourceType, int]) -> Dict[ResourceType, int]:
+    def _collect_resources_at_position(self, position: Position, current_resources: Resources) -> Resources:
         """Collect any available resources at the given position"""
         new_resources = current_resources.copy()
         for resource_type, locations in self.resource_locations.items():
@@ -165,11 +219,28 @@ class ResourceCollectionProblem:
         """Get all possible next states from current state"""
         successors = []
         
-        for next_pos in self._get_possible_moves(state.position):
+        # Get needed resources
+        needed_resources = {
+            r_type for r_type in ResourceType
+            if state.resources.get(r_type, 0) < self.required_resources[r_type]
+        }
+        
+        # Get all possible moves
+        possible_moves = list(self._get_possible_moves(state.position))
+        
+        # Sort moves by proximity to needed resources
+        if needed_resources:
+            possible_moves.sort(key=lambda pos: min(
+                abs(pos[0] - rx) + abs(pos[1] - ry)
+                for r_type in needed_resources
+                for rx, ry in self.resource_locations[r_type]
+            ))
+        
+        for next_pos in possible_moves:
             # Skip invalid positions
             if not self._is_valid_position(next_pos):
                 continue
-                
+            
             # Check energy requirements
             new_energy = self._calculate_new_energy(state, next_pos)
             if new_energy <= 0:
@@ -202,10 +273,15 @@ class ResourceCollectionProblem:
 
     def heuristic(self, state: GameState) -> float:
         """
-        Estimate minimum cost to goal state using:
+        Estimate minimum cost to goal state
+        
+        Uses:
         1. Manhattan distance to nearest needed resources
         2. Number of remaining resources needed
-        Returns combined heuristic value
+        3. Terrain costs to reach resources
+        
+        Returns:
+            Estimated minimum cost to goal
         """
         # Calculate remaining resources needed
         remaining_resources = {
@@ -217,22 +293,28 @@ class ResourceCollectionProblem:
         if sum(remaining_resources.values()) == 0:
             return 0
             
-        # Calculate distances to nearest needed resources
-        total_distance = 0
+        # Calculate minimum cost to collect each needed resource
+        total_cost = 0
+        current_pos = state.position
+        
         for r_type, needed in remaining_resources.items():
             if needed > 0:
-                # Calculate Manhattan distance to each resource location
-                distances = [
-                    abs(state.position[0] - x) + abs(state.position[1] - y)
-                    for x, y in self.resource_locations[r_type]
-                ]
-                if distances:
-                    total_distance += min(distances)  # Use distance to nearest resource
+                # Find distance to nearest resource of this type
+                min_cost = float('inf')
+                for rx, ry in self.resource_locations[r_type]:
+                    # Manhattan distance
+                    distance = abs(current_pos[0] - rx) + abs(current_pos[1] - ry)
+                    
+                    # Estimate terrain costs (minimum possible cost)
+                    terrain_cost = distance * self.movement_costs[TerrainType.PLAIN]
+                    
+                    min_cost = min(min_cost, terrain_cost)
+                
+                total_cost += min_cost * needed
         
-        # Combine distance and remaining resource count
-        return total_distance + sum(remaining_resources.values()) * 5
+        return total_cost
 
-    def _get_cell_symbol(self, position: Tuple[int, int], solution: GameState) -> str:
+    def _get_cell_symbol(self, position: Position, solution: GameState) -> str:
         """Get the symbol to display for a given cell position"""
         # Check path first
         if position in solution.visited_positions:
@@ -277,11 +359,15 @@ class ResourceCollectionProblem:
         print("\nPath visualization:")
         self.visualize_solution(solution)
 
-def resource_collection_search(problem: ResourceCollectionProblem):
+def resource_collection_search(problem: ResourceCollectionProblem, max_explored: int = 10000):
     """
     A* search implementation for resource collection problem
     Uses priority queue for frontier and maintains explored set
     Returns solution state if found, None otherwise
+    
+    Args:
+        problem: The resource collection problem instance
+        max_explored: Maximum number of states to explore before giving up
     """
     # Create initial state with starting position and empty resources
     initial_state = GameState(
@@ -297,6 +383,10 @@ def resource_collection_search(problem: ResourceCollectionProblem):
     explored = set()  # Set of explored states
     
     while frontier:
+        if len(explored) >= max_explored:
+            print(f"Search terminated: Exceeded maximum explored states ({max_explored})")
+            return None
+            
         _, cost, current_state = heappop(frontier)
         
         # Check if we've reached the goal
