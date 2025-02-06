@@ -87,7 +87,7 @@ class ReflexVacuumAgent:
         
         return random.choice(list(Action))
 
-def run_simulation(steps=20):
+def run_simulation(steps=40):
     env = Environment(size=5)
     agent = ReflexVacuumAgent()
     
