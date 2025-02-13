@@ -181,32 +181,97 @@ def generate_sample_trails() -> List[Trail]:
              (40.2019, -105.5866))
     ]
 
+def display_all_trails(trails: List[Trail]) -> None:
+    """Display all available trails with their details"""
+    print("\nAvailable Trails:")
+    print("-" * 80)
+    for i, trail in enumerate(trails, 1):
+        features_str = ", ".join(trail.features)
+        print(f"{i}. {trail.name}")
+        print(f"   Distance: {trail.distance}mi")
+        print(f"   Elevation Gain: {trail.elevation_gain}ft")
+        print(f"   Difficulty: {trail.difficulty}/5")
+        print(f"   Scenic Rating: {trail.scenic_rating}/5")
+        print(f"   Features: {features_str}")
+        print()
+
+def get_user_preferences() -> Dict[str, str]:
+    """Get trail preferences from user input"""
+    preferences = {}
+    
+    print("\nPlease enter your preferences (press Enter to skip any preference):")
+    
+    # Distance preference
+    distance = input("Distance preference (shorter/longer): ").lower().strip()
+    if distance in ['shorter', 'longer']:
+        preferences['distance'] = distance
+    
+    # Elevation preference
+    elevation = input("Elevation preference (less_elevation/more_elevation): ").lower().strip()
+    if elevation in ['less_elevation', 'more_elevation']:
+        preferences['elevation'] = elevation
+    
+    # Difficulty preference
+    difficulty = input("Difficulty preference (easier/harder): ").lower().strip()
+    if difficulty in ['easier', 'harder']:
+        preferences['difficulty'] = difficulty
+    
+    # Scenic preference
+    scenic = input("Scenic preference (less_scenic/more_scenic): ").lower().strip()
+    if scenic in ['less_scenic', 'more_scenic']:
+        preferences['scenic'] = scenic
+    
+    return preferences
+
 def main():
     # Generate sample trails
     trails = generate_sample_trails()
     
-    # Build decision tree
-    tree = TrailDecisionTree()
-    tree.build_tree(trails)
-    
-    # Example preferences
-    preferences = {
-        'distance': 'shorter',
-        'elevation': 'less_elevation',
-        'difficulty': 'harder',
-        'scenic': 'more_scenic'
-    }
-    
-    # Find matching trail
-    recommended_trail = tree.find_trail(preferences)
-    
-    if recommended_trail:
-        print("\nRecommended trail based on preferences:")
-        print(recommended_trail)
-        # Visualize the recommended trail on a map
-        visualize_trail(recommended_trail)
-    else:
-        print("\nNo trail found matching all preferences.")
+    while True:
+        print("\n=== Trail Finder ===")
+        print("1. View all trails")
+        print("2. Search for trails based on preferences")
+        print("3. Exit")
+        
+        choice = input("\nEnter your choice (1-3): ").strip()
+        
+        if choice == '1':
+            display_all_trails(trails)
+            
+        elif choice == '2':
+            # Build decision tree
+            tree = TrailDecisionTree()
+            tree.build_tree(trails)
+            
+            # Get user preferences
+            preferences = get_user_preferences()
+            
+            if not preferences:
+                print("\nNo preferences specified. Please try again with at least one preference.")
+                continue
+            
+            # Find matching trail
+            recommended_trail = tree.find_trail(preferences)
+            
+            if recommended_trail:
+                print("\nRecommended trail based on your preferences:")
+                print(recommended_trail)
+                
+                # Ask if user wants to see the map
+                show_map = input("\nWould you like to see this trail on a map? (yes/no): ").lower().strip()
+                if show_map.startswith('y'):
+                    visualize_trail(recommended_trail)
+            else:
+                print("\nNo trail found matching all preferences.")
+                
+        elif choice == '3':
+            print("\nThank you for using Trail Finder!")
+            break
+            
+        else:
+            print("\nInvalid choice. Please try again.")
+        
+        input("\nPress Enter to continue...")
 
 if __name__ == "__main__":
     main()
