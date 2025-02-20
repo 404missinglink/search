@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from typing import List, Optional, Dict, Tuple
 import random
-from queue import PriorityQueue
 import folium
 
 @dataclass
