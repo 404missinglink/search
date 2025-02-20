@@ -1,8 +1,22 @@
 """
-Tic Tac Toe with Minimax Algorithm
----------------------------------
-A beginner-friendly implementation of the minimax algorithm for Tic Tac Toe.
+Tic Tac Toe with Minimax Algorithm and Alpha-Beta Pruning
+-------------------------------------------------------
+A beginner-friendly implementation of the minimax algorithm with alpha-beta pruning.
 This program shows how AI can play perfect Tic Tac Toe by thinking ahead!
+
+What is Alpha-Beta Pruning?
+--------------------------
+Alpha-beta pruning is like having a smart student doing a test:
+- If they know a choice will be worse than one they already found,
+  they skip checking that choice completely!
+
+Alpha (α): The best score the maximizing player (X) is guaranteed
+Beta (β):  The best score the minimizing player (O) is guaranteed
+
+Example of pruning:
+If X is looking at moves and already found a move with score 5,
+and then sees that O's next move would give a score of 3 or less,
+X can skip checking that path because it's already worse than what we have!
 
 Board representation:
 ┌───┬───┬───┐
@@ -75,20 +89,27 @@ def is_moves_left(board):
     """
     return any(' ' in row for row in board)
 
-def minimax(board, depth, is_max, show_thinking=False):
+def minimax(board, depth, is_max, alpha=float('-inf'), beta=float('inf'), show_thinking=False):
     """
-    The minimax algorithm: the brain of our AI!
+    The minimax algorithm with alpha-beta pruning: the smarter brain of our AI!
     
     How it thinks:
     1. First, check if someone has won or if it's a draw
-    2. If not, try every possible move
+    2. If not, try every possible move (but skip bad ones using alpha-beta pruning!)
     3. For each move, think ahead about what the opponent would do
     4. Keep track of the best outcome we can achieve
+    
+    Alpha-Beta Pruning:
+    - Alpha (α): Best score X can guarantee (starts at -∞)
+    - Beta (β):  Best score O can guarantee (starts at +∞)
+    - If α ≥ β, we can stop looking (one player found a better move elsewhere)
     
     Parameters:
     - board: Current game state
     - depth: How many moves we've looked ahead
     - is_max: True if it's X's turn (AI), False if it's O's turn
+    - alpha: Best score X can guarantee so far
+    - beta: Best score O can guarantee so far
     - show_thinking: If True, prints out the AI's thinking process
     """
     # First check if someone has already won
@@ -108,6 +129,7 @@ def minimax(board, depth, is_max, show_thinking=False):
     
     if show_thinking:
         print_board(board, depth=depth)
+        print(f"{'  ' * depth}α = {alpha}, β = {beta}")
     
     # X's turn (AI) - try to maximize score
     if is_max:
@@ -119,12 +141,26 @@ def minimax(board, depth, is_max, show_thinking=False):
                     board[i][j] = 'X'
                     if show_thinking:
                         print(f"{'  ' * depth}AI trying move ({i}, {j})")
+                    
                     # Look ahead and see what opponent would do
-                    score = minimax(board, depth + 1, False, show_thinking)
+                    score = minimax(board, depth + 1, False, alpha, beta, show_thinking)
+                    
                     # Undo the move
                     board[i][j] = ' '
-                    # Update best score
+                    
+                    # Update best score and alpha
                     best_score = max(score, best_score)
+                    alpha = max(alpha, best_score)
+                    
+                    if show_thinking:
+                        print(f"{'  ' * depth}Move ({i}, {j}) got score {score}")
+                        if beta <= alpha:
+                            print(f"{'  ' * depth}Pruning! Found better move elsewhere (α={alpha} ≥ β={beta})")
+                    
+                    # Pruning: If we found a move that's better than what O allows
+                    if beta <= alpha:
+                        return best_score
+        
         return best_score
     
     # O's turn (opponent) - try to minimize score
@@ -137,25 +173,41 @@ def minimax(board, depth, is_max, show_thinking=False):
                     board[i][j] = 'O'
                     if show_thinking:
                         print(f"{'  ' * depth}Opponent trying move ({i}, {j})")
+                    
                     # Look ahead and see what AI would do
-                    score = minimax(board, depth + 1, True, show_thinking)
+                    score = minimax(board, depth + 1, True, alpha, beta, show_thinking)
+                    
                     # Undo the move
                     board[i][j] = ' '
-                    # Update best score
+                    
+                    # Update best score and beta
                     best_score = min(score, best_score)
+                    beta = min(beta, best_score)
+                    
+                    if show_thinking:
+                        print(f"{'  ' * depth}Move ({i}, {j}) got score {score}")
+                        if beta <= alpha:
+                            print(f"{'  ' * depth}Pruning! Found better move elsewhere (α={alpha} ≥ β={beta})")
+                    
+                    # Pruning: If we found a move that's better than what X allows
+                    if beta <= alpha:
+                        return best_score
+        
         return best_score
 
 def find_best_move(board, show_thinking=False):
     """
     Finds the best move for X (the AI) by:
     1. Trying every possible move
-    2. Using minimax to see how good each move is
+    2. Using minimax with alpha-beta pruning to see how good each move is
     3. Picking the move with the best outcome
     
     Returns: (row, col) of the best move
     """
     best_score = float('-inf')
     best_move = None
+    alpha = float('-inf')
+    beta = float('inf')
     
     print("\nAI is thinking about all possible moves:")
     for i in range(3):
@@ -164,7 +216,7 @@ def find_best_move(board, show_thinking=False):
                 # Try this move
                 board[i][j] = 'X'
                 # See how good this move is
-                score = minimax(board, 0, False, show_thinking)
+                score = minimax(board, 0, False, alpha, beta, show_thinking)
                 # Undo the move
                 board[i][j] = ' '
                 
@@ -174,6 +226,7 @@ def find_best_move(board, show_thinking=False):
                 if score > best_score:
                     best_score = score
                     best_move = (i, j)
+                    alpha = max(alpha, best_score)
     
     return best_move
 
