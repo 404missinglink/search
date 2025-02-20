@@ -1,45 +1,69 @@
 """
 Tic Tac Toe with Minimax Algorithm
 ---------------------------------
-This is a simple implementation of the minimax algorithm for Tic Tac Toe.
-The board is represented as a 3x3 grid where:
-- 'X' is the maximizing player (trying to get highest score)
-- 'O' is the minimizing player (trying to get lowest score)
-- ' ' (space) represents empty squares
+A beginner-friendly implementation of the minimax algorithm for Tic Tac Toe.
+This program shows how AI can play perfect Tic Tac Toe by thinking ahead!
 
-The scoring system is simple:
-- +10 points if X wins
-- -10 points if O wins
-- 0 points for a draw
+Board representation:
+┌───┬───┬───┐
+│ X │ O │   │ --> represented as [['X', 'O', ' '],
+├───┼───┼───┤     ['O', 'X', ' '],
+│ O │ X │   │      ['X', ' ', ' ']]
+├───┼───┼───┤
+│ X │   │   │
+└───┴───┴───┘
+
+Scoring system:
+- If X wins: +10 points
+- If O wins: -10 points
+- If draw:    0 points
+
+The AI (X) tries to get the highest score possible.
+The opponent (O) tries to get the lowest score possible.
 """
+
+def create_empty_board():
+    """Creates a new empty 3x3 board"""
+    return [[' ' for _ in range(3)] for _ in range(3)]
+
+def is_valid_move(board, row, col):
+    """Checks if a move is valid (space is empty and within bounds)"""
+    if 0 <= row <= 2 and 0 <= col <= 2:
+        return board[row][col] == ' '
+    return False
 
 def evaluate_board(board):
     """
-    Looks at the board and returns a score based on who is winning:
-    - Returns +10 if X wins (good for X)
-    - Returns -10 if O wins (good for O)
-    - Returns 0 if nobody has won yet
+    Looks at the board and returns a score based on who is winning.
+    Think of this as the 'judge' that decides how good a position is.
+    
+    Returns:
+    - +10 if X wins (good for X)
+    - -10 if O wins (good for O)
+    -   0 if nobody has won yet
     """
     # Check all rows (→) for a win
     for row in board:
-        if row.count('X') == 3:  # If row has three X's
+        if row == ['X', 'X', 'X']:  # A row of X's
             return 10
-        if row.count('O') == 3:  # If row has three O's
+        if row == ['O', 'O', 'O']:  # A row of O's
             return -10
     
     # Check all columns (↓) for a win
     for col in range(3):
-        if board[0][col] == board[1][col] == board[2][col] == 'X':  # If column has three X's
+        if (board[0][col] == board[1][col] == board[2][col] == 'X'):  # A column of X's
             return 10
-        if board[0][col] == board[1][col] == board[2][col] == 'O':  # If column has three O's
+        if (board[0][col] == board[1][col] == board[2][col] == 'O'):  # A column of O's
             return -10
     
-    # Check diagonal (↘) and other diagonal (↙) for a win
-    if board[0][0] == board[1][1] == board[2][2] == 'X' or \
-       board[0][2] == board[1][1] == board[2][0] == 'X':  # If either diagonal has three X's
+    # Check main diagonal (↘)
+    if (board[0][0] == board[1][1] == board[2][2] == 'X' or  # Main diagonal of X's
+        board[0][2] == board[1][1] == board[2][0] == 'X'):   # Other diagonal of X's
         return 10
-    if board[0][0] == board[1][1] == board[2][2] == 'O' or \
-       board[0][2] == board[1][1] == board[2][0] == 'O':  # If either diagonal has three O's
+    
+    # Check other diagonal (↙)
+    if (board[0][0] == board[1][1] == board[2][2] == 'O' or  # Main diagonal of O's
+        board[0][2] == board[1][1] == board[2][0] == 'O'):   # Other diagonal of O's
         return -10
     
     return 0  # Nobody has won yet
@@ -47,141 +71,180 @@ def evaluate_board(board):
 def is_moves_left(board):
     """
     Checks if there are any empty spaces left on the board.
-    Returns True if there are empty spaces, False if the board is full.
+    This is like checking if the game should continue or end in a draw.
     """
-    # Look through each row for any empty space
-    for row in board:
-        if ' ' in row:  # If we find an empty space
-            return True
-    return False  # No empty spaces found
+    return any(' ' in row for row in board)
 
-def minimax(board, depth, is_max):
+def minimax(board, depth, is_max, show_thinking=False):
     """
-    The minimax algorithm: thinks ahead about all possible moves!
+    The minimax algorithm: the brain of our AI!
     
-    How it works:
-    1. If X wins: return +10 (good for X)
-    2. If O wins: return -10 (good for O)
-    3. If nobody can move: return 0 (it's a draw)
-    4. Otherwise:
-       - If it's X's turn: try all moves and pick the highest score
-       - If it's O's turn: try all moves and pick the lowest score
+    How it thinks:
+    1. First, check if someone has won or if it's a draw
+    2. If not, try every possible move
+    3. For each move, think ahead about what the opponent would do
+    4. Keep track of the best outcome we can achieve
     
     Parameters:
-    - board: The current game board
-    - depth: How many moves we've looked ahead (used to prefer winning sooner)
-    - is_max: True if it's X's turn, False if it's O's turn
+    - board: Current game state
+    - depth: How many moves we've looked ahead
+    - is_max: True if it's X's turn (AI), False if it's O's turn
+    - show_thinking: If True, prints out the AI's thinking process
     """
     # First check if someone has already won
     score = evaluate_board(board)
     
-    # X has won! The sooner we win, the better (that's why we subtract depth)
+    # If X has won, return score (adjusted for how quickly we won)
     if score == 10:
-        return score - depth
+        return score - depth  # Winning sooner is better than later
     
-    # O has won! The later we lose, the better (that's why we add depth)
+    # If O has won, return score (adjusted for how quickly we lost)
     if score == -10:
-        return score + depth
+        return score + depth  # Losing later is better than sooner
     
-    # It's a draw - no more moves and nobody has won
+    # If no moves left, it's a draw
     if not is_moves_left(board):
         return 0
     
-    # It's X's turn (maximizing player)
+    if show_thinking:
+        print_board(board, depth=depth)
+    
+    # X's turn (AI) - try to maximize score
     if is_max:
-        best_score = -1000  # Start with a very low score
-        # Try every possible move
+        best_score = float('-inf')  # Start with worst possible score
         for i in range(3):
             for j in range(3):
-                if board[i][j] == ' ':  # Found an empty spot
-                    # Try this move
+                if board[i][j] == ' ':
+                    # Try the move
                     board[i][j] = 'X'
-                    # See what would happen if we make this move
-                    score = minimax(board, depth + 1, False)
+                    if show_thinking:
+                        print(f"{'  ' * depth}AI trying move ({i}, {j})")
+                    # Look ahead and see what opponent would do
+                    score = minimax(board, depth + 1, False, show_thinking)
                     # Undo the move
                     board[i][j] = ' '
-                    # Keep track of the best score we've seen
+                    # Update best score
                     best_score = max(score, best_score)
         return best_score
     
-    # It's O's turn (minimizing player)
+    # O's turn (opponent) - try to minimize score
     else:
-        best_score = 1000  # Start with a very high score
-        # Try every possible move
+        best_score = float('inf')  # Start with worst possible score
         for i in range(3):
             for j in range(3):
-                if board[i][j] == ' ':  # Found an empty spot
-                    # Try this move
+                if board[i][j] == ' ':
+                    # Try the move
                     board[i][j] = 'O'
-                    # See what would happen if we make this move
-                    score = minimax(board, depth + 1, True)
+                    if show_thinking:
+                        print(f"{'  ' * depth}Opponent trying move ({i}, {j})")
+                    # Look ahead and see what AI would do
+                    score = minimax(board, depth + 1, True, show_thinking)
                     # Undo the move
                     board[i][j] = ' '
-                    # Keep track of the best score we've seen
+                    # Update best score
                     best_score = min(score, best_score)
         return best_score
 
-def find_best_move(board):
+def find_best_move(board, show_thinking=False):
     """
-    Finds the best possible move for X by:
-    1. Trying every empty spot on the board
+    Finds the best move for X (the AI) by:
+    1. Trying every possible move
     2. Using minimax to see how good each move is
-    3. Picking the move with the highest score
+    3. Picking the move with the best outcome
     
     Returns: (row, col) of the best move
     """
-    best_score = -1000  # Start with a very low score
-    best_move = (-1, -1)  # Keep track of the best move's position
+    best_score = float('-inf')
+    best_move = None
     
-    # Try every spot on the board
+    print("\nAI is thinking about all possible moves:")
     for i in range(3):
         for j in range(3):
-            if board[i][j] == ' ':  # Found an empty spot
-                # Try making a move here
+            if board[i][j] == ' ':
+                # Try this move
                 board[i][j] = 'X'
                 # See how good this move is
-                move_score = minimax(board, 0, False)
+                score = minimax(board, 0, False, show_thinking)
                 # Undo the move
                 board[i][j] = ' '
                 
-                # If this move is better than our best so far, remember it
-                if move_score > best_score:
+                print(f"If AI moves at ({i}, {j}), best outcome would be: {score}")
+                
+                # Update best move if this is better
+                if score > best_score:
+                    best_score = score
                     best_move = (i, j)
-                    best_score = move_score
     
     return best_move
 
-def print_board(board):
+def print_board(board, depth=0):
     """
-    Prints the board in a nice format:
-    X | O | X
-    ---------
-    O | X | O
-    ---------
-    X |   |  
+    Prints the board in a nice format with optional indentation
+    to show the AI's thinking process.
     """
+    indent = '  ' * depth
+    print(f"\n{indent}┌───┬───┬───┐")
     for i, row in enumerate(board):
-        print(' | '.join(cell if cell != ' ' else ' ' for cell in row))
-        if i < 2:  # Don't print the line after the last row
-            print('---------')
+        print(f"{indent}│ {' │ '.join(cell if cell != ' ' else ' ' for cell in row)} │")
+        if i < 2:
+            print(f"{indent}├───┼───┼───┤")
+    print(f"{indent}└───┴───┴───┘")
 
-# Example of how to use the code
+def play_game():
+    """
+    Play a game of Tic Tac Toe against the AI!
+    You are O, the AI is X.
+    """
+    board = create_empty_board()
+    print("\nWelcome to Tic Tac Toe!")
+    print("You are O, the AI is X")
+    print("Enter your move as: row column (0-2)")
+    
+    # AI goes first
+    print("\nAI's turn:")
+    row, col = find_best_move(board, show_thinking=True)
+    board[row][col] = 'X'
+    print_board(board)
+    
+    while is_moves_left(board):
+        # Player's turn
+        while True:
+            try:
+                row, col = map(int, input("\nYour turn (row col): ").split())
+                if is_valid_move(board, row, col):
+                    break
+                print("Invalid move! Try again.")
+            except (ValueError, IndexError):
+                print("Invalid input! Use format: row col (0-2)")
+        
+        board[row][col] = 'O'
+        print_board(board)
+        
+        # Check if player won
+        if evaluate_board(board) == -10:
+            print("\nCongratulations! You won!")
+            return
+        
+        # Check if it's a draw
+        if not is_moves_left(board):
+            print("\nIt's a draw!")
+            return
+        
+        # AI's turn
+        print("\nAI's turn:")
+        row, col = find_best_move(board, show_thinking=True)
+        board[row][col] = 'X'
+        print_board(board)
+        
+        # Check if AI won
+        if evaluate_board(board) == 10:
+            print("\nAI wins!")
+            return
+        
+        # Check if it's a draw
+        if not is_moves_left(board):
+            print("\nIt's a draw!")
+            return
+
 if __name__ == "__main__":
-    # Start with a board where X needs to make a move
-    example_board = [
-        ['X', 'O', ' '],
-        [' ', 'X', ' '],
-        [' ', 'O', ' ']
-    ]
-    
-    print("Starting board:")
-    print_board(example_board)
-    print("\nThinking about the best move...")
-    
-    # Find and make the best move
-    row, col = find_best_move(example_board)
-    example_board[row][col] = 'X'
-    
-    print(f"\nBest move is: row {row}, column {col}")
-    print("\nResulting board:")
-    print_board(example_board)
+    play_game()
